@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 namespace Adrenak.RNNoise4Unity {
     public static class Native {
         public const string LIBRARY_NAME = "rnnoise";
-        public const int FRAME_SIZE = 480;
 
         public const float SIGNAL_SCALE = short.MaxValue;
         public const float SIGNAL_SCALE_INV = 1f / short.MaxValue;

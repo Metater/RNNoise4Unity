@@ -2,6 +2,7 @@
 
 namespace Adrenak.RNNoise4Unity {
     public class Denoiser : IDisposable {
+        int frameSize;
         IntPtr state;
 
         float[] processingBuffer;
@@ -10,11 +11,12 @@ namespace Adrenak.RNNoise4Unity {
         float[] processedData;
         int processedDataRemaining;
 
-        public Denoiser() {
+        public Denoiser(int frameSize = 480) {
+            this.frameSize = frameSize;
             state = Native.rnnoise_create(IntPtr.Zero);
 
-            processingBuffer = new float[Native.FRAME_SIZE];
-            processedData = new float[Native.FRAME_SIZE];
+            processingBuffer = new float[frameSize];
+            processedData = new float[frameSize];
         }
 
         public unsafe int Denoise(Span<float> buffer, bool finish = false) {
@@ -22,7 +24,7 @@ namespace Adrenak.RNNoise4Unity {
 
             fixed (float* processingPtr = &processingBuffer[0])
             fixed (float* bufferPtr = buffer) {
-                while (buffer.Length > 0 || processingBufferDataStart == Native.FRAME_SIZE) {
+                while (buffer.Length > 0 || processingBufferDataStart == frameSize) {
                     if (processedDataRemaining > 0) {
                         // copy new data to the processing buffer
                         var sourceSlice = buffer;
@@ -48,7 +50,7 @@ namespace Adrenak.RNNoise4Unity {
                         count += processed.Length;
                     }
 
-                    if (processingBufferDataStart > 0 || buffer.Length < Native.FRAME_SIZE) {
+                    if (processingBufferDataStart > 0 || buffer.Length < frameSize) {
                         // needs to use the processing buffer for this frame
                         var processing = processingBuffer.AsSpan();
                         processing = processing.Slice(processingBufferDataStart);
@@ -69,16 +71,16 @@ namespace Adrenak.RNNoise4Unity {
                             if (processing.Length > 0)
                                 processing.Fill(0);
 
-                            for (int i = 0; i < Native.FRAME_SIZE; i++)
+                            for (int i = 0; i < frameSize; i++)
                                 processingBuffer[i] *= Native.SIGNAL_SCALE;
 
                             fixed (float* processedPtr = &processedData[0])
                                 Native.rnnoise_process_frame(state, processedPtr, processingPtr);
 
-                            for (int i = 0; i < Native.FRAME_SIZE; i++)
+                            for (int i = 0; i < frameSize; i++)
                                 processedData[i] *= Native.SIGNAL_SCALE_INV;
 
-                            processedDataRemaining = Native.FRAME_SIZE;
+                            processedDataRemaining = frameSize;
 
                             var processed = processedData.AsSpan();
 
@@ -101,17 +103,17 @@ namespace Adrenak.RNNoise4Unity {
                     }
                     else {
                         // can process the source buffer directly without extra copies
-                        for (int i = 0; i < Native.FRAME_SIZE; i++)
+                        for (int i = 0; i < frameSize; i++)
                             buffer[i] *= Native.SIGNAL_SCALE;
 
                         Native.rnnoise_process_frame(state, bufferPtr + count, bufferPtr + count);
 
-                        for (int i = 0; i < Native.FRAME_SIZE; i++)
+                        for (int i = 0; i < frameSize; i++)
                             buffer[i] *= Native.SIGNAL_SCALE_INV;
 
-                        buffer = buffer.Slice(Native.FRAME_SIZE);
+                        buffer = buffer.Slice(frameSize);
 
-                        count += Native.FRAME_SIZE;
+                        count += frameSize;
                     }
                 }
             }
